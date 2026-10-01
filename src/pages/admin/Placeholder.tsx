@@ -1,0 +1,2 @@
+import { Construction } from 'lucide-react'
+export function Placeholder({ title }: { title: string }) { return <div className="grid min-h-[60vh] place-items-center"><div className="text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-mint text-teal"><Construction /></div><h1 className="mt-5 font-display text-2xl font-bold">{title}</h1><p className="mt-2 text-ink/55">Esta área será habilitada nas próximas etapas.</p></div></div> }
