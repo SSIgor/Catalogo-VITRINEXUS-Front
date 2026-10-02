@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, Boxes, ClipboardList, FolderTree, LayoutDashboard, LogOut, Menu, Package, ShoppingBag, Tags, Users, X } from 'lucide-react'
+import { BarChart3, Boxes, ClipboardList, FolderTree, LayoutDashboard, LogOut, Menu, Package, Percent, ShoppingBag, Tags, Users, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
 const menu = [
@@ -8,6 +8,7 @@ const menu = [
   { label: 'Produtos', to: 'produtos', icon: Package },
   { label: 'Categorias', to: 'categorias', icon: Tags },
   { label: 'Grupos', to: 'grupos', icon: FolderTree },
+  { label: 'Cupons', to: 'cupons', icon: Percent },
   { label: 'Estoque', to: 'estoque', icon: Boxes },
   { label: 'Vendas', to: 'vendas', icon: ShoppingBag },
   { label: 'Clientes', to: 'clientes', icon: Users },

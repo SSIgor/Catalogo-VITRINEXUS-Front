@@ -1,13 +1,36 @@
 import api from './api'
-import type { ImagemProduto, Produto, ProdutoCreate, ProdutoUpdate, ReordenarImagens } from '../types/produto'
+import type {
+  ImagemProduto,
+  Produto,
+  ProdutoCreate,
+  ProdutoUpdate,
+  ProdutosPaginados,
+  ReordenarImagens,
+} from '../types/produto'
 
 export interface ProdutoCreateResponse {
   id?: string
   produtoId?: string
 }
 
-export async function listarProdutos(): Promise<Produto[]> {
-  const { data } = await api.get<Produto[]>('/api/produtos')
+export interface ListarProdutosParams {
+  page?: number
+  pageSize?: number
+  categoriaId?: string
+  grupoId?: string
+  busca?: string
+}
+
+export async function listarProdutos(params: ListarProdutosParams = {}): Promise<ProdutosPaginados> {
+  const { data } = await api.get<ProdutosPaginados>('/api/produtos', {
+    params: {
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 10,
+      categoriaId: params.categoriaId || undefined,
+      grupoId: params.grupoId || undefined,
+      busca: params.busca || undefined,
+    },
+  })
   return data
 }
 

@@ -27,6 +27,7 @@ export interface Cliente {
 
 export type { CategoriaCreate, CategoriaUpdate } from './categoria'
 export type { Grupo, GrupoCreate, GrupoUpdate } from './grupo'
+export type { Cupom, CupomCreate, CupomUpdate } from './cupom'
 export type { AjusteEstoque, EntradaEstoque, EstoqueBaixo, EstoqueProduto, EstoqueZerado, HistoricoMovimentacao, MovimentacaoEstoque } from './estoque'
 
 export interface LoginResponse {

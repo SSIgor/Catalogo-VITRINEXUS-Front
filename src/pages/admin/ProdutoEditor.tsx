@@ -12,7 +12,21 @@ import { EstoqueBadge } from '../../components/produto/ProdutoStatusBadge'
 export function ProdutoEditor() {
   const { id } = useParams(); const navigate = useNavigate(); const queryClient = useQueryClient(); const [feedback, setFeedback] = useState('')
   const editing = Boolean(id); const product = useQuery({ queryKey: ['produto', id], queryFn: () => obterProduto(id!), enabled: editing }); const categories = useQuery({ queryKey: ['categorias'], queryFn: listarCategorias }); const groups = useQuery({ queryKey: ['grupos'], queryFn: listarGrupos })
-  const save = useMutation<Awaited<ReturnType<typeof atualizarProduto>> | ProdutoCreateResponse, Error, ProdutoFormData>({ mutationFn: (data) => editing ? atualizarProduto(id!, data) : criarProduto(data), onSuccess: (saved) => { queryClient.invalidateQueries({ queryKey: ['produtos'] }); setFeedback(editing ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.'); const productId = 'produtoId' in saved ? saved.produtoId : saved.id; if (!editing && productId) navigate(`/admin/produtos/${productId}`, { replace: true }) } })
+  const save = useMutation<Awaited<ReturnType<typeof atualizarProduto>> | ProdutoCreateResponse, Error, ProdutoFormData>({
+    mutationFn: (data) => (editing ? atualizarProduto(id!, data) : criarProduto(data)),
+    onSuccess: (saved) => {
+      queryClient.invalidateQueries({ queryKey: ['produtos'] })
+      setFeedback(editing ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.')
+
+      const productId = saved && typeof saved === 'object'
+        ? ('produtoId' in saved ? saved.produtoId : 'id' in saved ? saved.id : undefined)
+        : undefined
+
+      if (!editing && productId) {
+        navigate(`/admin/produtos/${productId}`, { replace: true })
+      }
+    },
+  })
   useEffect(() => { if (save.isSuccess) { const timer = window.setTimeout(() => setFeedback(''), 4500); return () => window.clearTimeout(timer) } }, [save.isSuccess])
   const error = product.error || categories.error || groups.error || save.error
   if (editing && product.isLoading) return <p className="rounded-2xl bg-white p-12 text-center text-sm text-ink/50">Carregando produto...</p>

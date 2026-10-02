@@ -1,10 +1,43 @@
 import api from './api'
-import type { Produto } from '../types/produto'
+import type { Produto, ProdutosPaginados } from '../types/produto'
 import type { AjusteEstoque, EntradaEstoque, EstoqueBaixo, EstoqueProduto, EstoqueZerado, HistoricoMovimentacao } from '../types/estoque'
 
 export async function listarEstoque(): Promise<EstoqueProduto[]> {
-  const { data } = await api.get<Produto[]>('/api/produtos')
-  return data.map(({ id, nome, codigo, categoriaId, grupoId, estoqueAtual, estoqueMinimo, ativo }) => ({ id, nome, codigo, categoriaId, grupoId, estoqueAtual, estoqueMinimo, ativo }))
+  const pageSize = 100
+  let pagina = 1
+  const produtos: EstoqueProduto[] = []
+
+  while (pagina > 0) {
+    const { data } = await api.get<Produto[] | ProdutosPaginados>('/api/produtos', {
+      params: {
+        page: pagina,
+        pageSize,
+      },
+    })
+
+    const items = Array.isArray(data) ? data : data.items ?? []
+
+    produtos.push(
+      ...items.map(({ id, nome, codigo, categoriaId, grupoId, estoqueAtual, estoqueMinimo, ativo }) => ({
+        id,
+        nome,
+        codigo,
+        categoriaId,
+        grupoId,
+        estoqueAtual,
+        estoqueMinimo,
+        ativo,
+      }))
+    )
+
+    if (Array.isArray(data) || !('totalPages' in data) || data.page >= data.totalPages) {
+      break
+    }
+
+    pagina += 1
+  }
+
+  return produtos
 }
 
 export async function buscarEstoqueBaixo(): Promise<EstoqueBaixo[]> {

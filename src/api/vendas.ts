@@ -1,5 +1,5 @@
 import api from './api'
-import type { Venda } from '../types/venda'
+import type { Venda, VendaCreateDto } from '../types/venda'
 
 type ApiRecord = Record<string, unknown>
 
@@ -33,6 +33,11 @@ export async function listarVendas(): Promise<Venda[]> {
 
 export async function obterVenda(id: string): Promise<Venda> {
   const { data } = await api.get<Venda>(`/api/vendas/${id}`)
+  return data
+}
+
+export async function criarVenda(payload: VendaCreateDto): Promise<Venda> {
+  const { data } = await api.post<Venda>('/api/vendas', payload)
   return data
 }
 

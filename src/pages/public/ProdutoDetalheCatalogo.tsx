@@ -1,15 +1,19 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, RotateCw, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react'
 import { obterProdutoCatalogo } from '../../api/catalogo'
 import { PublicLayout } from '../../components/layout/PublicLayout'
+import { useCart } from '../../contexts/CartContext'
 import { messageForApiError } from '../../utils/apiError'
-import { useState } from 'react'
+import { canIncreaseQuantity, getProdutoButtonLabel, isProdutoDisponivel, normalizarAtivo, normalizarEstoque } from '../../utils/catalogoDisponibilidade'
+import { getImagemPrincipalCatalogo, ordenarImagensGaleria } from '../../utils/catalogoImagens'
+import { useEffect, useState } from 'react'
 
 export function ProdutoDetalheCatalogo() {
   const { id, slug } = useParams<{ id: string; slug: string }>()
   const navigate = useNavigate()
   const [imagemSelecionada, setImagemSelecionada] = useState(0)
+  const { items, addItem, updateQuantity } = useCart()
 
   const produtoQuery = useQuery({
     queryKey: ['catalogo', slug, 'produto', id],
@@ -18,8 +22,20 @@ export function ProdutoDetalheCatalogo() {
   })
 
   const produto = produtoQuery.data
-  const imagens = produto?.imagens ?? []
-  const imagemAtual = imagens[imagemSelecionada]
+  const imagemPrincipal = getImagemPrincipalCatalogo(produto)
+  const imagens = ordenarImagensGaleria(produto)
+
+  useEffect(() => {
+    setImagemSelecionada(0)
+  }, [produto?.id])
+
+  const imagemAtual = imagens[imagemSelecionada] ?? imagemPrincipal ?? null
+  const itemNoCarrinho = items.find((item) => item.id === produto?.id)
+  const quantidadeNoCarrinho = itemNoCarrinho?.quantidade ?? 0
+  const preco = Number(produto?.preco ?? 0)
+  const ativo = produto ? normalizarAtivo(produto.ativo) : true
+  const estoqueDisponivel = produto ? normalizarEstoque(produto.estoqueAtual) : Number.POSITIVE_INFINITY
+  const produtoDisponivel = produto ? isProdutoDisponivel({ ativo: produto.ativo, estoqueAtual: produto.estoqueAtual }) : false
 
   const handleProxima = () => {
     if (imagemSelecionada < imagens.length - 1) {
@@ -77,9 +93,9 @@ export function ProdutoDetalheCatalogo() {
           <div className="grid gap-8 sm:grid-cols-2">
             {/* Galeria */}
             <div className="space-y-4">
-              <div className="relative aspect-square overflow-hidden rounded-2xl bg-paper">
+              <div className="relative flex aspect-[4/4.4] w-full items-center justify-center overflow-hidden rounded-2xl bg-paper p-4 sm:p-5">
                 {imagemAtual?.url ? (
-                  <img src={imagemAtual.url} alt={produto.nome} className="h-full w-full object-cover" />
+                  <img src={imagemAtual.url} alt={produto.nome} className="h-full w-full object-contain" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-ink/15">Sem imagem</div>
                 )}
@@ -107,16 +123,16 @@ export function ProdutoDetalheCatalogo() {
 
               {/* Miniaturas */}
               {imagens.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto">
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {imagens.map((img, idx) => (
                     <button
                       key={img.id}
                       onClick={() => setImagemSelecionada(idx)}
-                      className={`h-16 w-16 shrink-0 rounded-lg border-2 transition-colors ${
+                      className={`h-18 w-18 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-paper p-1 transition-colors ${
                         idx === imagemSelecionada ? 'border-teal' : 'border-ink/15 hover:border-teal/50'
                       }`}
                     >
-                      <img src={img.url} alt={`${produto.nome} ${idx + 1}`} className="h-full w-full object-cover rounded-lg" />
+                      <img src={img.url} alt={`${produto.nome} ${idx + 1}`} className="h-full w-full rounded-md object-contain" />
                     </button>
                   ))}
                 </div>
@@ -135,7 +151,7 @@ export function ProdutoDetalheCatalogo() {
                 </div>
 
                 <p className="mt-8 font-display text-3xl font-bold text-teal">
-                  R$ {produto.preco.toFixed(2).replace('.', ',')}
+                  R$ {preco.toFixed(2).replace('.', ',')}
                 </p>
 
                 {produto.descricao && (
@@ -147,11 +163,63 @@ export function ProdutoDetalheCatalogo() {
               </div>
 
               {/* Ações */}
-              <button className="mt-8 w-full rounded-xl bg-teal py-3.5 text-center font-semibold text-white transition-colors hover:bg-teal/90 disabled:opacity-50">
-                Adicionar ao carrinho
-              </button>
+              {produtoDisponivel ? (
+                quantidadeNoCarrinho > 0 ? (
+                  <div className="mt-8 flex items-center justify-center gap-3 rounded-xl border border-ink/15 bg-paper px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(produto.id, quantidadeNoCarrinho - 1)}
+                      className="grid h-10 w-10 place-items-center rounded-lg bg-white text-ink/70 hover:text-teal"
+                      aria-label={`Diminuir quantidade de ${produto.nome}`}
+                    >
+                      <Minus size={18} />
+                    </button>
+                    <span className="min-w-10 text-center text-lg font-semibold text-ink">{quantidadeNoCarrinho}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(produto.id, quantidadeNoCarrinho + 1)}
+                      disabled={!canIncreaseQuantity(quantidadeNoCarrinho, estoqueDisponivel)}
+                      className="grid h-10 w-10 place-items-center rounded-lg bg-white text-ink/70 hover:text-teal disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label={`Aumentar quantidade de ${produto.nome}`}
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      addItem({
+                        id: produto.id,
+                        nome: produto.nome,
+                        imagem: imagemPrincipal?.url ?? imagemAtual?.url ?? null,
+                        preco,
+                        estoqueAtual: estoqueDisponivel,
+                        ativo,
+                      })
+                    }
+                    className="mt-8 w-full rounded-xl bg-teal py-3.5 text-center font-semibold text-white transition-colors hover:bg-teal/90"
+                  >
+                    Adicionar ao carrinho
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="mt-8 w-full rounded-xl bg-ink/10 px-4 py-3 text-center text-sm font-semibold text-ink/45 disabled:cursor-not-allowed"
+                >
+                  {getProdutoButtonLabel({ ativo: produto.ativo, estoqueAtual: produto.estoqueAtual })}
+                </button>
+              )}
 
-              <p className="mt-3 text-center text-xs text-ink/50">Funcionalidade disponível em breve</p>
+              <button
+                type="button"
+                onClick={() => navigate(`/catalogo/${slug}/carrinho`)}
+                className="mt-3 w-full rounded-xl border border-ink/15 bg-white py-3 text-sm font-semibold text-ink/70 transition-colors hover:border-teal hover:text-teal"
+              >
+                Ver carrinho
+              </button>
             </div>
           </div>
         )}

@@ -1,11 +1,33 @@
 export type StatusVenda = 'Pendente' | 'Confirmada' | 'Concluida' | 'Concluída' | 'ConcluÃ­da' | 'Cancelada'
 export type StatusPagamento = 'Pendente' | 'Pago'
 export type FormaPagamento = 'Dinheiro' | 'Pix' | 'CartaoCredito' | 'CartaoDebito' | 'Outro' | string
+export type OrigemVenda = 'Catalogo' | 'Administrativo' | string
 
 export interface ClienteVenda {
   nome?: string
   telefone?: string
   whatsApp?: string
+}
+
+export interface VendaItemCreateDto {
+  produtoId: string
+  quantidade: number
+}
+
+export interface VendaCreateDto {
+  clienteId: string | null
+  formaPagamento: FormaPagamento
+  valorDesconto: number
+  valorEntrega: number
+  observacao?: string | null
+  itens: VendaItemCreateDto[]
+  cupomCodigo?: string | null
+  nomeCliente?: string | null
+  logradouroEntrega?: string | null
+  numeroEntrega?: string | null
+  bairroEntrega?: string | null
+  complementoEntrega?: string | null
+  referenciaEntrega?: string | null
 }
 
 export interface VendaItem {

@@ -1,7 +1,12 @@
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Search, RotateCw } from 'lucide-react'
-import { listarProdutosCatalogo, listarCategoriasCatalogo, listarGruposCatalogo } from '../../api/catalogo'
+import {
+  listarProdutosCatalogo,
+  listarCategoriasCatalogo,
+  listarGruposCatalogo,
+  obterEmpresaCatalogo,
+} from '../../api/catalogo'
 import { CatalogoGrid } from '../../components/catalogo/CatalogoGrid'
 import { FiltroCompacto } from '../../components/catalogo/FiltroCompacto'
 import { PublicLayout } from '../../components/layout/PublicLayout'
@@ -10,26 +15,34 @@ import { useMemo, useState } from 'react'
 
 export function Catalogo() {
   const { slug } = useParams<{ slug: string }>()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [busca, setBusca] = useState(searchParams.get('busca') ?? '')
   const categoriaFiltro = searchParams.get('categoria') ?? ''
   const grupoFiltro = searchParams.get('grupo') ?? ''
 
+  const empresaQuery = useQuery({
+    queryKey: ['catalogo', slug, 'empresa'],
+    queryFn: () => obterEmpresaCatalogo(slug),
+    enabled: Boolean(slug),
+  })
+
   const produtosQuery = useQuery({
     queryKey: ['catalogo', slug, 'produtos'],
     queryFn: () => listarProdutosCatalogo(slug),
+    enabled: Boolean(slug),
   })
 
   const categoriasQuery = useQuery({
     queryKey: ['catalogo', slug, 'categorias'],
     queryFn: () => listarCategoriasCatalogo(slug),
+    enabled: Boolean(slug),
   })
 
   const gruposQuery = useQuery({
     queryKey: ['catalogo', slug, 'grupos'],
     queryFn: () => listarGruposCatalogo(slug),
+    enabled: Boolean(slug),
   })
 
   const produtosFiltrados = useMemo(() => {
@@ -72,6 +85,30 @@ export function Catalogo() {
     setSearchParams({ busca, categoria: categoriaFiltro, grupo: id })
   }
 
+  if (!slug) {
+    return (
+      <PublicLayout>
+        <div className="mx-auto max-w-2xl px-5 py-16 text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-ink/45">Catálogo</p>
+          <h1 className="mt-3 font-display text-3xl font-bold text-ink">Catálogo não encontrado</h1>
+          <p className="mt-3 text-ink/55">A URL informada não corresponde a um catálogo válido.</p>
+        </div>
+      </PublicLayout>
+    )
+  }
+
+  if (empresaQuery.error) {
+    return (
+      <PublicLayout>
+        <div className="mx-auto max-w-2xl px-5 py-16 text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-ink/45">Catálogo</p>
+          <h1 className="mt-3 font-display text-3xl font-bold text-ink">Catálogo não encontrado</h1>
+          <p className="mt-3 text-ink/55">{messageForApiError(empresaQuery.error, 'Este catálogo não está disponível no momento.')}</p>
+        </div>
+      </PublicLayout>
+    )
+  }
+
   return (
     <PublicLayout>
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
@@ -92,7 +129,9 @@ export function Catalogo() {
 
         {/* Título */}
         <div className="mb-8">
-          <h1 className="font-display text-4xl font-bold text-ink">Produtos</h1>
+          <h1 className="font-display text-4xl font-bold text-ink">
+            {empresaQuery.data?.nome ?? 'Catálogo'}
+          </h1>
           <p className="mt-2 text-ink/55">Confira nossa seleção de produtos disponíveis</p>
         </div>
 
@@ -138,11 +177,11 @@ export function Catalogo() {
         {/* Info de contagem */}
         {!produtosQuery.isLoading && produtosQuery.data && (
           <p className="mt-8 text-center text-sm font-medium text-ink/50">
-            {produtosFiltrados.length === 0 
+            {produtosFiltrados.length === 0
               ? 'Nenhum produto encontrado'
               : produtosFiltrados.length === 1
-              ? '1 produto encontrado'
-              : `${produtosFiltrados.length} produtos encontrados`}
+                ? '1 produto encontrado'
+                : `${produtosFiltrados.length} produtos encontrados`}
           </p>
         )}
       </div>

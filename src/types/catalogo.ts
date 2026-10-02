@@ -12,14 +12,15 @@ export interface ProdutoCatalogo {
   id: string
   nome: string
   descricao?: string | null
-  preco: number
+  preco: number | string
   imagens?: ImagemProdutoCatalogo[] | null
+  imagemPrincipal?: ImagemProdutoCatalogo | null
   categoria?: Categoria
-  categoriaId: string
+  categoriaId?: string
   grupo?: Grupo
-  grupoId: string
-  ativo: boolean
-  estoqueAtual: number
+  grupoId?: string
+  ativo?: boolean
+  estoqueAtual?: number | string | null
 }
 
 export interface CategoriaCatalogo extends Categoria {}

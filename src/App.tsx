@@ -5,6 +5,8 @@ import { Login } from './pages/Login'
 import { Dashboard } from './pages/admin/Dashboard'
 import { Placeholder } from './pages/admin/Placeholder'
 import { Catalogo } from './pages/public/Catalogo'
+import { Carrinho } from './pages/public/Carrinho'
+import { Checkout } from './pages/public/Checkout'
 import { ProdutoDetalheCatalogo } from './pages/public/ProdutoDetalheCatalogo'
 import { Produtos } from './pages/admin/Produtos'
 import { ProdutoEditor } from './pages/admin/ProdutoEditor'
@@ -12,6 +14,8 @@ import { Categorias } from './pages/admin/Categorias'
 import { CategoriaEditor } from './pages/admin/CategoriaEditor'
 import { Grupos } from './pages/admin/Grupos'
 import { GrupoEditor } from './pages/admin/GrupoEditor'
+import { Cupons } from './pages/admin/Cupons'
+import { CupomEditor } from './pages/admin/CupomEditor'
 import { Estoque } from './pages/admin/Estoque'
 import { Vendas } from './pages/admin/Vendas'
 import { VendaDetalhePage } from './pages/admin/VendaDetalhePage'
@@ -22,6 +26,8 @@ export default function App() {
   return <Routes>
     <Route path="/login" element={<Login />} />
     <Route path="/catalogo/:slug" element={<Catalogo />} />
+    <Route path="/catalogo/:slug/carrinho" element={<Carrinho />} />
+    <Route path="/catalogo/:slug/checkout" element={<Checkout />} />
     <Route path="/catalogo/:slug/produto/:id" element={<ProdutoDetalheCatalogo />} />
     <Route element={<ProtectedRoute />}>
       <Route path="/admin" element={<AdminLayout />}>
@@ -36,6 +42,9 @@ export default function App() {
         <Route path="grupos" element={<Grupos />} />
         <Route path="grupos/novo" element={<GrupoEditor />} />
         <Route path="grupos/:id" element={<GrupoEditor />} />
+        <Route path="cupons" element={<Cupons />} />
+        <Route path="cupons/novo" element={<CupomEditor />} />
+        <Route path="cupons/:id" element={<CupomEditor />} />
         <Route path="estoque" element={<Estoque />} />
         <Route path="vendas" element={<Vendas />} />
         <Route path="vendas/:id" element={<VendaDetalhePage />} />
@@ -44,6 +53,6 @@ export default function App() {
         <Route path="relatorios" element={<Placeholder title="Relatórios" />} />
       </Route>
     </Route>
-    <Route path="*" element={<Navigate to="/catalogo/demo" replace />} />
+    <Route path="*" element={<Navigate to="/login" replace />} />
   </Routes>
 }

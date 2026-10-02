@@ -25,6 +25,14 @@ export interface Produto {
   imagens?: ImagemProduto[] | null
 }
 
+export interface ProdutosPaginados {
+  items: Produto[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
 export interface ProdutoCreate {
   categoriaId: string
   grupoId: string
