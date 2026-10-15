@@ -1,5 +1,5 @@
 import api from './api'
-import type { LoginResponse } from '../types'
+import type { LoginResponse, TrocarSenhaPayload } from '../types'
 
 export interface LoginPayload {
   email: string
@@ -8,5 +8,10 @@ export interface LoginPayload {
 
 export async function loginRequest(payload: LoginPayload): Promise<LoginResponse> {
   const { data } = await api.post<LoginResponse>('/api/auth/login', payload)
+  return data
+}
+
+export async function trocarSenhaRequest(payload: TrocarSenhaPayload): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/api/auth/trocar-senha', payload)
   return data
 }

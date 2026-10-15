@@ -21,15 +21,20 @@ import { Vendas } from './pages/admin/Vendas'
 import { VendaDetalhePage } from './pages/admin/VendaDetalhePage'
 import { Clientes } from './pages/admin/Clientes'
 import { ClienteDetalhePage } from './pages/admin/ClienteDetalhePage'
+import { CadastroEmpresa } from './pages/admin/CadastroEmpresa'
+import { TrocarSenha } from './pages/TrocarSenha'
 
 export default function App() {
   return <Routes>
     <Route path="/login" element={<Login />} />
+    <Route element={<ProtectedRoute />}>
+      <Route path="/trocar-senha" element={<TrocarSenha />} />
+    </Route>
     <Route path="/catalogo/:slug" element={<Catalogo />} />
     <Route path="/catalogo/:slug/carrinho" element={<Carrinho />} />
     <Route path="/catalogo/:slug/checkout" element={<Checkout />} />
     <Route path="/catalogo/:slug/produto/:id" element={<ProdutoDetalheCatalogo />} />
-    <Route element={<ProtectedRoute />}>
+    <Route element={<ProtectedRoute requirePasswordChanged />}>
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
@@ -51,6 +56,9 @@ export default function App() {
         <Route path="clientes" element={<Clientes />} />
         <Route path="clientes/:id" element={<ClienteDetalhePage />} />
         <Route path="relatorios" element={<Placeholder title="Relatórios" />} />
+        <Route element={<ProtectedRoute superAdminOnly />}>
+          <Route path="plataforma/empresas/nova" element={<CadastroEmpresa />} />
+        </Route>
       </Route>
     </Route>
     <Route path="*" element={<Navigate to="/login" replace />} />

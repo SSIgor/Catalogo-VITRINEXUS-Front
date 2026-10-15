@@ -3,7 +3,7 @@ export interface Usuario {
   nome: string
   email: string
   tipo: string
-  empresaId: string
+  empresaId: string | null
 }
 
 export interface Empresa {
@@ -33,4 +33,9 @@ export type { AjusteEstoque, EntradaEstoque, EstoqueBaixo, EstoqueProduto, Estoq
 export interface LoginResponse {
   token: string
   usuario: Usuario
+}
+
+export interface TrocarSenhaPayload {
+  senhaAtual: string
+  novaSenha: string
 }

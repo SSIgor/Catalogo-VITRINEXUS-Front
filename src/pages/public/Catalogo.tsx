@@ -11,15 +11,18 @@ import { CatalogoGrid } from '../../components/catalogo/CatalogoGrid'
 import { FiltroCompacto } from '../../components/catalogo/FiltroCompacto'
 import { PublicLayout } from '../../components/layout/PublicLayout'
 import { messageForApiError } from '../../utils/apiError'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { PaginacaoCatalogo } from '../../components/catalogo/PaginacaoCatalogo'
+import { atualizarFiltrosCatalogo, atualizarPaginaCatalogo, filtrarProdutosCatalogo, paginarCatalogo } from '../../utils/catalogoPaginacao'
 
 export function Catalogo() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [busca, setBusca] = useState(searchParams.get('busca') ?? '')
+  const busca = searchParams.get('busca') ?? ''
   const categoriaFiltro = searchParams.get('categoria') ?? ''
   const grupoFiltro = searchParams.get('grupo') ?? ''
+  const paginaSolicitada = Number(searchParams.get('pagina') ?? 1)
 
   const empresaQuery = useQuery({
     queryKey: ['catalogo', slug, 'empresa'],
@@ -45,45 +48,24 @@ export function Catalogo() {
     enabled: Boolean(slug),
   })
 
-  const produtosFiltrados = useMemo(() => {
-    let resultado = produtosQuery.data ?? []
-
-    if (busca.trim()) {
-      const term = busca.toLowerCase()
-      resultado = resultado.filter(
-        (p) =>
-          p.nome.toLowerCase().includes(term) ||
-          p.descricao?.toLowerCase().includes(term)
-      )
-    }
-
-    if (categoriaFiltro) {
-      resultado = resultado.filter((p) => p.categoriaId === categoriaFiltro)
-    }
-
-    if (grupoFiltro) {
-      resultado = resultado.filter((p) => p.grupoId === grupoFiltro)
-    }
-
-    return resultado
-  }, [produtosQuery.data, busca, categoriaFiltro, grupoFiltro])
+  const produtosFiltrados = useMemo(
+    () => filtrarProdutosCatalogo(produtosQuery.data ?? [], { busca, categoria: categoriaFiltro, grupo: grupoFiltro }),
+    [produtosQuery.data, busca, categoriaFiltro, grupoFiltro]
+  )
 
   const handleBusca = (value: string) => {
-    setBusca(value)
-    if (value.trim()) {
-      setSearchParams({ busca: value, categoria: categoriaFiltro, grupo: grupoFiltro })
-    } else {
-      setSearchParams({ categoria: categoriaFiltro, grupo: grupoFiltro })
-    }
+    setSearchParams(atualizarFiltrosCatalogo(searchParams, { busca: value.trim() ? value : '', categoria: categoriaFiltro, grupo: grupoFiltro }))
   }
 
   const handleCategoria = (id: string) => {
-    setSearchParams({ busca, categoria: id, grupo: grupoFiltro })
+    setSearchParams(atualizarFiltrosCatalogo(searchParams, { busca, categoria: id, grupo: grupoFiltro }))
   }
 
   const handleGrupo = (id: string) => {
-    setSearchParams({ busca, categoria: categoriaFiltro, grupo: id })
+    setSearchParams(atualizarFiltrosCatalogo(searchParams, { busca, categoria: categoriaFiltro, grupo: id }))
   }
+
+  const paginacao = paginarCatalogo(produtosFiltrados, paginaSolicitada)
 
   if (!slug) {
     return (
@@ -171,7 +153,13 @@ export function Catalogo() {
             ))}
           </div>
         ) : (
-          <CatalogoGrid produtos={produtosFiltrados} />
+          <>
+            <CatalogoGrid produtos={paginacao.itens} />
+            <PaginacaoCatalogo
+              paginacao={paginacao}
+              aoMudarPagina={(pagina) => setSearchParams(atualizarPaginaCatalogo(searchParams, pagina))}
+            />
+          </>
         )}
 
         {/* Info de contagem */}
