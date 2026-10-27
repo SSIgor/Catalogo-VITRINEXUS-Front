@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildVendaPayload,
   buildWhatsAppUrl,
+  getPedidoErrorMessage,
+  getWhatsAppNumber,
+  navigateWhatsAppPopup,
+  reserveWhatsAppPopup,
+  validateCheckoutRequiredFields,
 } from './checkout'
 
 describe('checkout', () => {
@@ -70,5 +75,78 @@ describe('checkout', () => {
     expect(url).not.toContain('WhatsApp%3A')
     expect(url).toContain('Forma%20de%20pagamento%3A%20PIX')
     expect(url).toContain('Status%20do%20pagamento%3A%20Pendente')
+  })
+
+  it('normaliza números brasileiros e mantém números internacionais explícitos', () => {
+    expect(getWhatsAppNumber('(66) 99999-9999')).toBe('5566999999999')
+    expect(getWhatsAppNumber('+1 (212) 555-0100')).toBe('12125550100')
+    expect(getWhatsAppNumber('telefone inválido')).toBe('')
+    expect(() => buildWhatsAppUrl({
+      empresaWhatsApp: 'telefone inválido',
+      pedidoNumero: 1,
+      clienteNome: 'Cliente',
+      produtos: [],
+      subtotal: 0,
+      desconto: 0,
+      total: 0,
+      endereco: 'Rua X, 1 - Centro',
+      formaPagamento: 'Pix',
+    })).toThrow(/ausente ou em formato inválido/)
+  })
+
+  it('valida todos os campos obrigatórios do checkout', () => {
+    expect(validateCheckoutRequiredFields({
+      nomeCliente: ' ',
+      logradouroEntrega: '',
+      numeroEntrega: '',
+      bairroEntrega: ' ',
+    })).toEqual({
+      nomeCliente: 'Informe seu nome.',
+      logradouroEntrega: 'Informe a rua.',
+      numeroEntrega: 'Informe o número.',
+      bairroEntrega: 'Informe o bairro.',
+    })
+    expect(validateCheckoutRequiredFields({
+      nomeCliente: 'Ana',
+      logradouroEntrega: 'Rua X',
+      numeroEntrega: '12',
+      bairroEntrega: 'Centro',
+    })).toEqual({})
+  })
+
+  it('preserva a mensagem original devolvida pela API e identifica falhas de rede', () => {
+    expect(getPedidoErrorMessage({
+      response: { status: 422, data: { detail: 'Produto sem saldo disponível.' } },
+    })).toBe('Produto sem saldo disponível.')
+    expect(getPedidoErrorMessage({
+      response: { status: 400, data: { title: 'Validation failed', errors: { nome: ['Informe o nome.'] } } },
+    })).toBe('Informe o nome.')
+    expect(getPedidoErrorMessage({
+      message: 'Request failed with status code 503',
+      response: { status: 503, statusText: 'Service Unavailable' },
+    })).toContain('HTTP 503')
+    expect(getPedidoErrorMessage(new Error('Network Error'))).toContain('Network Error')
+  })
+
+  it('reserva a janela no clique e navega até a URL do WhatsApp', () => {
+    const replace = vi.fn()
+    const popup = {
+      opener: {} as Window,
+      location: { replace },
+      document: { title: '', body: { textContent: '' } },
+      close: vi.fn(),
+    } as unknown as Window
+    const openWindow = vi.fn(() => popup)
+
+    const reserved = reserveWhatsAppPopup(openWindow)
+
+    expect(openWindow).toHaveBeenCalledOnce()
+    expect(reserved).toBe(popup)
+    expect(popup.opener).toBeNull()
+    expect(popup.document.title).toBe('VITRINEXUS — pedido em andamento')
+    expect(navigateWhatsAppPopup(reserved, 'https://wa.me/5566999999999?text=Pedido')).toBe(true)
+    expect(replace).toHaveBeenCalledWith('https://wa.me/5566999999999?text=Pedido')
+    expect(navigateWhatsAppPopup(null, 'https://wa.me/5566999999999')).toBe(false)
+    expect(reserveWhatsAppPopup(() => null)).toBeNull()
   })
 })

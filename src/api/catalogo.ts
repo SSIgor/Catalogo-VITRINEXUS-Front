@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { ProdutoCatalogo, CategoriaCatalogo, GrupoCatalogo } from '../types/catalogo'
+import type { Venda, VendaCreateDto } from '../types/venda'
 
 // Create a public API instance without authentication
 const publicApi = axios.create({
@@ -60,6 +61,13 @@ export async function obterProdutoCatalogo(id: string, slug?: string): Promise<P
   }
 
   const { data } = await publicApi.get<ProdutoCatalogo>(`/api/catalogo/${slug}/produtos/${id}`)
+  return data
+}
+
+export async function criarPedidoCatalogo(slug: string, payload: VendaCreateDto): Promise<Venda> {
+  if (!slug.trim()) throw new Error('Slug da empresa não informado')
+
+  const { data } = await publicApi.post<Venda>(`/api/catalogo/${encodeURIComponent(slug)}/pedidos`, payload)
   return data
 }
 

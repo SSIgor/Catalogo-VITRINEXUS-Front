@@ -1,8 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import api from './api'
-import { cancelarVenda, confirmarPagamentoVenda, confirmarVenda, concluirVenda, listarVendas } from './vendas'
+import { cancelarVenda, confirmarPagamentoVenda, confirmarVenda, concluirVenda, criarVenda, listarVendas } from './vendas'
 
-vi.mock('./api', () => ({ default: { get: vi.fn(), put: vi.fn() } }))
+vi.mock('./api', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn() } }))
+
+describe('criarVenda', () => {
+  beforeEach(() => vi.mocked(api.post).mockReset())
+
+  it('retorna a venda criada pela API', async () => {
+    const venda = { id: 'venda-17', numero: 17 }
+    vi.mocked(api.post).mockResolvedValueOnce({ data: venda } as never)
+
+    await expect(criarVenda({} as never)).resolves.toEqual(venda)
+    expect(api.post).toHaveBeenCalledWith('/api/vendas', {})
+  })
+
+  it('propaga a falha original da API para o checkout', async () => {
+    const apiError = { response: { status: 503, data: { detail: 'Serviço de vendas indisponível.' } } }
+    vi.mocked(api.post).mockRejectedValueOnce(apiError)
+
+    await expect(criarVenda({} as never)).rejects.toBe(apiError)
+    expect(api.post).toHaveBeenCalledWith('/api/vendas', {})
+  })
+})
 
 describe('ações de venda', () => {
   beforeEach(() => vi.mocked(api.put).mockReset().mockResolvedValue({ data: undefined } as never))

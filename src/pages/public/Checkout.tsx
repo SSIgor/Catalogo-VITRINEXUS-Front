@@ -1,10 +1,20 @@
 import { ArrowLeft, CheckCircle2, CreditCard, MapPin, ShieldCheck, UserRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { obterEmpresaCatalogo } from '../../api/catalogo'
-import { criarVenda } from '../../api/vendas'
+import { criarPedidoCatalogo, obterEmpresaCatalogo } from '../../api/catalogo'
 import { useCart } from '../../contexts/CartContext'
-import { buildVendaPayload, buildWhatsAppUrl, formatCurrency, getPedidoErrorMessage, type FormaPagamentoCheckout } from '../../utils/checkout'
+import {
+  buildVendaPayload,
+  buildWhatsAppUrl,
+  closeWhatsAppPopup,
+  formatCurrency,
+  getPedidoErrorMessage,
+  getWhatsAppNumber,
+  navigateWhatsAppPopup,
+  reserveWhatsAppPopup,
+  validateCheckoutRequiredFields,
+  type FormaPagamentoCheckout,
+} from '../../utils/checkout'
 
 const steps = ['Dados do cliente', 'Endereço', 'Pagamento', 'Resumo']
 const opcoesPagamento: Array<{ value: FormaPagamentoCheckout; label: string }> = [
@@ -38,6 +48,8 @@ export function Checkout() {
   } = useCart()
 
   const [empresa, setEmpresa] = useState<{ nome?: string; whatsApp?: string | null; telefone?: string | null } | null>(null)
+  const [empresaLoading, setEmpresaLoading] = useState(true)
+  const [empresaLoadError, setEmpresaLoadError] = useState('')
   const [currentStep, setCurrentStep] = useState(0)
   const [form, setForm] = useState(initialForm)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -55,14 +67,30 @@ export function Checkout() {
     referencia?: string | null
     formaPagamento: FormaPagamentoCheckout
     clienteNome: string
+    whatsAppUrl: string
   } | null>(null)
 
   useEffect(() => {
     if (!slug) return
 
+    let cancelled = false
+    setEmpresaLoading(true)
+    setEmpresaLoadError('')
     obterEmpresaCatalogo(slug)
-      .then((empresaCatalogo) => setEmpresa(empresaCatalogo))
-      .catch(() => setEmpresa(null))
+      .then((empresaCatalogo) => {
+        if (cancelled) return
+        setEmpresa(empresaCatalogo)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setEmpresa(null)
+        setEmpresaLoadError(getPedidoErrorMessage(error, 'Não foi possível carregar os dados de contato da empresa.'))
+      })
+      .finally(() => {
+        if (!cancelled) setEmpresaLoading(false)
+      })
+
+    return () => { cancelled = true }
   }, [slug])
 
   useEffect(() => {
@@ -76,27 +104,19 @@ export function Checkout() {
   const updateField = (field: keyof typeof initialForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: '' }))
+    setSubmitError('')
   }
 
   const validateStep = (stepIndex: number) => {
-    const nextErrors: Record<string, string> = {}
-
-    if (stepIndex === 0) {
-      if (!form.nomeCliente.trim()) nextErrors.nomeCliente = 'Informe seu nome.'
-    }
-
-    if (stepIndex === 1) {
-      if (!form.logradouroEntrega.trim()) nextErrors.logradouroEntrega = 'Informe a rua.'
-      if (!form.numeroEntrega.trim()) nextErrors.numeroEntrega = 'Informe o número.'
-      if (!form.bairroEntrega.trim()) nextErrors.bairroEntrega = 'Informe o bairro.'
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
-      return false
-    }
-
-    return true
+    const requiredErrors = validateCheckoutRequiredFields(form)
+    const stepFields: Array<keyof typeof requiredErrors> = stepIndex === 0
+      ? ['nomeCliente']
+      : ['logradouroEntrega', 'numeroEntrega', 'bairroEntrega']
+    const stepErrors = Object.fromEntries(stepFields
+      .filter((field) => requiredErrors[field])
+      .map((field) => [field, requiredErrors[field] as string]))
+    setErrors((current) => ({ ...current, ...stepErrors }))
+    return Object.keys(stepErrors).length === 0
   }
 
   const goNext = () => {
@@ -108,15 +128,7 @@ export function Checkout() {
     setCurrentStep((current) => Math.max(current - 1, 0))
   }
 
-  const confirmarPedido = async () => {
-    if (isSubmitting) return
-
-    const valid = validateStep(0) && validateStep(1)
-    if (!valid) {
-      setCurrentStep(0)
-      return
-    }
-
+  const salvarPedido = async (numeroWhatsApp: string, whatsappPopup: Window | null) => {
     setIsSubmitting(true)
     setSubmitError('')
 
@@ -136,7 +148,7 @@ export function Checkout() {
         valorDesconto: desconto,
       })
 
-      const venda = await criarVenda(payload)
+      const venda = await criarPedidoCatalogo(slug ?? '', payload)
       const numeroPedido = venda.numero ?? venda.id ?? 'Pedido'
       const produtosPedido = items.map((item) => ({
         nome: item.nome,
@@ -144,7 +156,22 @@ export function Checkout() {
         preco: item.preco,
       }))
       const enderecoPedido = `${form.logradouroEntrega}, ${form.numeroEntrega} - ${form.bairroEntrega}`
+      const urlWhatsApp = buildWhatsAppUrl({
+        empresaWhatsApp: numeroWhatsApp,
+        pedidoNumero: numeroPedido,
+        clienteNome: form.nomeCliente,
+        produtos: produtosPedido,
+        subtotal,
+        cupom: coupon?.codigo,
+        desconto,
+        total,
+        endereco: enderecoPedido,
+        referencia: form.referenciaEntrega,
+        formaPagamento: form.formaPagamento,
+        statusPagamento: 'Pendente',
+      })
 
+      navigateWhatsAppPopup(whatsappPopup, urlWhatsApp)
       setPedidoCriado({
         numero: numeroPedido,
         id: venda.id,
@@ -157,57 +184,46 @@ export function Checkout() {
         referencia: form.referenciaEntrega || null,
         formaPagamento: form.formaPagamento,
         clienteNome: form.nomeCliente,
+        whatsAppUrl: urlWhatsApp,
       })
-
-      const rawEmpresaWhatsApp = empresa?.whatsApp ?? empresa?.telefone ?? ''
-      const numeroWhatsApp = rawEmpresaWhatsApp
-        .replace(/\s+/g, '')
-        .replace(/[()\-]/g, '')
-        .replace(/[^\d]/g, '')
-
-      const numeroWhatsAppFinal = numeroWhatsApp.startsWith('55') ? numeroWhatsApp : numeroWhatsApp ? `55${numeroWhatsApp}` : ''
-
-      if (!numeroWhatsAppFinal) {
-        setSubmitError('O WhatsApp da empresa não está configurado. Não foi possível abrir o atendimento.')
-        return
-      }
-
-      const mensagem = [
-        'Olá! Fiz um pedido pelo catálogo.',
-        '',
-        `*Pedido #${numeroPedido}*`,
-        `Cliente: ${form.nomeCliente}`,
-        '',
-        '*Produtos:*',
-        ...produtosPedido.map((produto) => `• ${produto.nome} — ${produto.quantidade}x ${formatCurrency(produto.preco)}`),
-        '',
-        `Subtotal: ${formatCurrency(subtotal)}`,
-        ...(coupon?.codigo ? [`Cupom: ${coupon.codigo}`] : []),
-        `Desconto: ${formatCurrency(desconto)}`,
-        `*Total: ${formatCurrency(total)}*`,
-        '',
-        '*Entrega:*',
-        enderecoPedido,
-        ...(form.referenciaEntrega ? [`Referência: ${form.referenciaEntrega}`] : []),
-        '',
-        `Forma de pagamento: ${form.formaPagamento.toUpperCase()}`,
-        'Status do pagamento: Pendente',
-        '',
-        'Obrigado!',
-      ].join('\n')
-
-      const url = `https://wa.me/${numeroWhatsAppFinal}?text=${encodeURIComponent(mensagem)}`
-      console.log('WhatsApp empresa:', numeroWhatsAppFinal)
-      console.log('URL WhatsApp:', url)
-
-      window.open(url, '_blank', 'noopener,noreferrer')
       clearCart()
     } catch (error) {
-      setSubmitError(getPedidoErrorMessage(error, 'Não foi possível finalizar o pedido. Tente novamente.'))
+      closeWhatsAppPopup(whatsappPopup)
+      setSubmitError(getPedidoErrorMessage(error, 'Não foi possível registrar o pedido. Tente novamente.'))
       setCurrentStep(0)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const confirmarPedido = () => {
+    if (isSubmitting) return
+
+    const requiredErrors = validateCheckoutRequiredFields(form)
+    if (Object.keys(requiredErrors).length > 0) {
+      setErrors(requiredErrors)
+      setCurrentStep(requiredErrors.nomeCliente ? 0 : 1)
+      return
+    }
+    if (items.length === 0) {
+      setSubmitError('Seu carrinho está vazio. Adicione produtos antes de confirmar o pedido.')
+      return
+    }
+
+    if (empresaLoading) {
+      setSubmitError('Aguarde o carregamento dos dados de contato da empresa antes de confirmar o pedido.')
+      return
+    }
+
+    const numeroWhatsApp = getWhatsAppNumber(empresa?.whatsApp) || getWhatsAppNumber(empresa?.telefone)
+    if (!numeroWhatsApp) {
+      setSubmitError(empresaLoadError || 'O WhatsApp da empresa está ausente ou inválido. Entre em contato com a empresa antes de enviar o pedido.')
+      return
+    }
+
+    // Reserve a aba durante o clique. Abrir o WhatsApp somente depois da API pode ser bloqueado no celular.
+    const whatsappPopup = reserveWhatsAppPopup()
+    void salvarPedido(numeroWhatsApp, whatsappPopup)
   }
 
   if (!slug) {
@@ -221,14 +237,6 @@ export function Checkout() {
 
   if (pedidoCriado) {
     const numeroPedido = pedidoCriado.numero ?? pedidoCriado.id ?? 'Pedido'
-    const catalogo = empresa
-
-    console.log('CATALOGO:', catalogo)
-    console.log('WHATSAPP EMPRESA:', catalogo?.whatsApp)
-
-    const numero = (catalogo?.whatsApp ?? '').replace(/\D/g, '')
-    const numeroFinal = numero.startsWith('55') ? numero : numero ? `55${numero}` : ''
-    const urlWhatsApp = numeroFinal ? `https://wa.me/${numeroFinal}` : ''
 
     return (
       <div className="mx-auto max-w-3xl px-5 py-10 sm:px-8 sm:py-12">
@@ -239,7 +247,7 @@ export function Checkout() {
           <p className="mt-5 text-center text-sm font-semibold uppercase tracking-[0.2em] text-teal">Pedido realizado</p>
           <h1 className="mt-3 text-center font-display text-3xl font-bold text-ink">Pedido realizado com sucesso!</h1>
           <p className="mt-4 text-center text-lg font-semibold text-ink">Pedido #{numeroPedido}</p>
-          <p className="mt-2 text-center text-ink/60">Seu pedido foi enviado para a empresa.</p>
+          <p className="mt-2 text-center text-ink/60">Seu pedido foi registrado. Se o WhatsApp não abriu automaticamente, toque no botão para enviar os detalhes à empresa.</p>
 
           <div className="mt-6 space-y-3 rounded-2xl bg-paper p-4 text-sm text-ink/70">
             <p><strong>Cliente:</strong> {pedidoCriado.clienteNome}</p>
@@ -251,18 +259,12 @@ export function Checkout() {
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <a
-              href={urlWhatsApp || '#'}
-              target={urlWhatsApp ? '_blank' : undefined}
-              rel={urlWhatsApp ? 'noreferrer' : undefined}
+              href={pedidoCriado.whatsAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
-              onClick={(event) => {
-                if (!urlWhatsApp) {
-                  event.preventDefault()
-                  window.alert('O WhatsApp da empresa não está configurado.')
-                }
-              }}
             >
-              Abrir WhatsApp da empresa
+              Abrir WhatsApp e enviar pedido
             </a>
             <Link
               to={`/catalogo/${slug}`}
@@ -510,11 +512,6 @@ export function Checkout() {
                 </div>
               </div>
 
-              {submitError && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-700">
-                  {submitError}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -546,6 +543,8 @@ export function Checkout() {
             <p className="mt-1">Pagamento: Pendente</p>
           </div>
 
+          {submitError && <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-700">{submitError}</div>}
+
           <div className="mt-6 flex flex-col gap-3">
             {currentStep < steps.length - 1 ? (
               <button
@@ -559,10 +558,10 @@ export function Checkout() {
               <button
                 type="button"
                 onClick={confirmarPedido}
-                disabled={isSubmitting}
+                disabled={isSubmitting || empresaLoading}
                 className="w-full rounded-xl bg-teal px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? 'Finalizando pedido...' : 'Confirmar pedido'}
+                {isSubmitting ? 'Finalizando pedido...' : empresaLoading ? 'Carregando dados da empresa...' : 'Confirmar pedido'}
               </button>
             )}
 

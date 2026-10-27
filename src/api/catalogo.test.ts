@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { listarProdutosCatalogo } from './catalogo'
+import { criarPedidoCatalogo, listarProdutosCatalogo } from './catalogo'
 
-const { mockGet } = vi.hoisted(() => ({ mockGet: vi.fn() }))
+const { mockGet, mockPost } = vi.hoisted(() => ({ mockGet: vi.fn(), mockPost: vi.fn() }))
 
-vi.mock('axios', () => ({ default: { create: () => ({ get: mockGet, post: vi.fn() }) } }))
+vi.mock('axios', () => ({ default: { create: () => ({ get: mockGet, post: mockPost }) } }))
 
 describe('listarProdutosCatalogo', () => {
   beforeEach(() => mockGet.mockReset().mockResolvedValue({ data: [{ id: 'produto-1' }] }))
@@ -20,5 +20,31 @@ describe('listarProdutosCatalogo', () => {
     await listarProdutosCatalogo('catalogo-teste')
 
     expect(mockGet).toHaveBeenCalledWith('/api/catalogo/catalogo-teste/produtos')
+  })
+})
+
+describe('criarPedidoCatalogo', () => {
+  beforeEach(() => mockPost.mockReset().mockResolvedValue({ data: { id: 'venda-publica-1' } }))
+
+  it('cria o pedido na rota pública do slug sem usar a API administrativa', async () => {
+    const payload = { clienteId: null, itens: [{ produtoId: 'produto-1', quantidade: 1 }] }
+
+    const venda = await criarPedidoCatalogo('empresa-a', payload as never)
+
+    expect(mockPost).toHaveBeenCalledOnce()
+    expect(mockPost).toHaveBeenCalledWith('/api/catalogo/empresa-a/pedidos', payload)
+    expect(venda).toEqual({ id: 'venda-publica-1' })
+  })
+
+  it('preserva erros devolvidos pelo endpoint público', async () => {
+    const apiError = { response: { status: 401, data: { detail: 'Token rejeitado.' } } }
+    mockPost.mockRejectedValueOnce(apiError)
+
+    await expect(criarPedidoCatalogo('empresa-a', {} as never)).rejects.toBe(apiError)
+  })
+
+  it('rejeita slug vazio antes de enviar a requisição', async () => {
+    await expect(criarPedidoCatalogo('  ', {} as never)).rejects.toThrow()
+    expect(mockPost).not.toHaveBeenCalled()
   })
 })
