@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,17 +7,38 @@ import { listarGrupos } from '../../api/grupos'
 import { atualizarProduto, excluirProduto, listarProdutos } from '../../api/produtos'
 import type { Produto } from '../../types/produto'
 import { ProdutoTable } from '../../components/produto/ProdutoTable'
+import { useLocation } from 'react-router-dom'
 
 const PAGE_SIZE = 10
 
+export interface ProductListState {
+  search: string
+  category: string
+  group: string
+  status: string
+  stock: string
+  page: number
+  scrollY: number
+}
+
+function getProductListState(locationState: unknown): ProductListState | undefined {
+  if (!locationState || typeof locationState !== 'object' || !('productListState' in locationState)) return undefined
+  const state = locationState.productListState
+  if (!state || typeof state !== 'object' || !('page' in state) || typeof state.page !== 'number') return undefined
+  return state as ProductListState
+}
+
 export function Produtos() {
+  const location = useLocation()
+  const restoredState = useRef(getProductListState(location.state))
+  const restoredScroll = useRef(false)
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('')
-  const [group, setGroup] = useState('')
-  const [status, setStatus] = useState('todos')
-  const [stock, setStock] = useState('todos')
-  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState(() => restoredState.current?.search ?? '')
+  const [category, setCategory] = useState(() => restoredState.current?.category ?? '')
+  const [group, setGroup] = useState(() => restoredState.current?.group ?? '')
+  const [status, setStatus] = useState(() => restoredState.current?.status ?? 'todos')
+  const [stock, setStock] = useState(() => restoredState.current?.stock ?? 'todos')
+  const [page, setPage] = useState(() => restoredState.current?.page ?? 1)
   const [feedback, setFeedback] = useState('')
 
   const queryParams = useMemo(
@@ -35,6 +56,12 @@ export function Produtos() {
     queryKey: ['produtos', queryParams],
     queryFn: () => listarProdutos(queryParams),
   })
+
+  useEffect(() => {
+    if (!restoredState.current || restoredScroll.current || !products.isSuccess) return
+    restoredScroll.current = true
+    window.requestAnimationFrame(() => window.scrollTo(0, restoredState.current?.scrollY ?? 0))
+  }, [products.isSuccess])
 
   const categories = useQuery({ queryKey: ['categorias'], queryFn: listarCategorias })
   const groups = useQuery({ queryKey: ['grupos'], queryFn: listarGrupos })
@@ -142,6 +169,10 @@ export function Produtos() {
   function handleStockChange(nextValue: string) {
     setStock(nextValue)
     setPage(1)
+  }
+
+  function getNavigationState(): ProductListState {
+    return { search, category, group, status, stock, page: currentPage, scrollY: window.scrollY }
   }
 
   return (
@@ -252,6 +283,7 @@ export function Produtos() {
               onDelete={confirmDelete}
               onToggle={(produto) => toggle.mutate(produto)}
               busyId={toggle.isPending ? toggle.variables?.id : undefined}
+              editState={getNavigationState()}
             />
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white p-4 shadow-sm">
