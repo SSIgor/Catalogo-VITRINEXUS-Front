@@ -23,6 +23,7 @@ import { Clientes } from './pages/admin/Clientes'
 import { ClienteDetalhePage } from './pages/admin/ClienteDetalhePage'
 import { CadastroEmpresa } from './pages/admin/CadastroEmpresa'
 import { TrocarSenha } from './pages/TrocarSenha'
+import { MinhaEmpresa } from './pages/admin/MinhaEmpresa'
 
 export default function App() {
   return <Routes>
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="minha-empresa" element={<MinhaEmpresa />} />
         <Route path="produtos" element={<Produtos />} />
         <Route path="produtos/novo" element={<ProdutoEditor />} />
         <Route path="produtos/:id" element={<ProdutoEditor />} />

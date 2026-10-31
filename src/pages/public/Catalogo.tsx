@@ -112,9 +112,9 @@ export function Catalogo() {
         {/* Título */}
         <div className="mb-8">
           <h1 className="font-display text-4xl font-bold text-ink">
-            {empresaQuery.data?.nome ?? 'Catálogo'}
+            Catálogo
           </h1>
-          <p className="mt-2 text-ink/55">Confira nossa seleção de produtos disponíveis</p>
+          <p className="mt-2 text-ink/55">Confira nossa seleção de produtos disponíveis.</p>
         </div>
 
         {/* Busca */}

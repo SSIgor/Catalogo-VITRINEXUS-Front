@@ -17,6 +17,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: !apiUrl.includes('localhost'),
         },
+        '/uploads': {
+          target: apiUrl,
+          changeOrigin: true,
+          secure: !apiUrl.includes('localhost'),
+        },
       },
     },
   }

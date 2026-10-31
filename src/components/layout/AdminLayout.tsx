@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   BarChart3,
   Boxes,
+  Building,
   Building2,
   FolderTree,
   LayoutDashboard,
@@ -21,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext'
 
 const menu = [
   { label: 'Dashboard', to: 'dashboard', icon: LayoutDashboard },
+  { label: 'Minha Empresa', to: 'minha-empresa', icon: Building },
   { label: 'Produtos', to: 'produtos', icon: Package },
   { label: 'Categorias', to: 'categorias', icon: Tags },
   { label: 'Grupos', to: 'grupos', icon: FolderTree },

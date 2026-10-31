@@ -1,12 +1,26 @@
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ShoppingBag, Store } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../../contexts/CartContext'
+import { obterEmpresaCatalogo } from '../../api/catalogo'
+import { getNomeCatalogo, resolveLogoCatalogoUrl, shouldShowLogo } from '../../utils/identidadeCatalogo'
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const currentSlug = location.pathname.match(/^\/catalogo\/([^/]+)/)?.[1]
   const { itemCount } = useCart()
+  const company = useQuery({
+    queryKey: ['catalogo', currentSlug, 'empresa'],
+    queryFn: () => obterEmpresaCatalogo(currentSlug),
+    enabled: Boolean(currentSlug),
+  })
+  const logoUrl = resolveLogoCatalogoUrl(company.data?.logoUrl)
+  const [imageFailed, setImageFailed] = useState(false)
+  useEffect(() => setImageFailed(false), [logoUrl])
+  const showLogo = shouldShowLogo(logoUrl, imageFailed)
+  const catalogName = getNomeCatalogo(company.data?.nomeFantasia)
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -15,14 +29,16 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
           <button
             onClick={() => navigate(currentSlug ? `/catalogo/${currentSlug}` : '/login')}
-            className="flex items-center gap-3 transition-opacity hover:opacity-80"
+          className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-80"
           >
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-teal text-white">
-              <Store size={20} />
+            <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-teal text-white">
+              {showLogo
+                ? <img src={logoUrl!} alt={`Logo de ${catalogName}`} onError={() => setImageFailed(true)} className="h-full w-full object-contain" />
+                : <Store size={26} />}
             </div>
-            <div>
-              <p className="font-display text-lg font-bold text-ink">Catálogo</p>
-              <p className="text-xs text-ink/50">Produtos disponíveis</p>
+            <div className="min-w-0">
+              <p className="max-w-[48vw] truncate text-left font-display text-lg font-bold text-ink sm:max-w-md">{catalogName}</p>
+              <p className="text-xs text-ink/50">Catálogo</p>
             </div>
           </button>
 

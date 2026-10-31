@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { criarPedidoCatalogo, listarProdutosCatalogo } from './catalogo'
+import { criarPedidoCatalogo, listarProdutosCatalogo, obterEmpresaCatalogo } from './catalogo'
 
 const { mockGet, mockPost } = vi.hoisted(() => ({ mockGet: vi.fn(), mockPost: vi.fn() }))
 
@@ -20,6 +20,26 @@ describe('listarProdutosCatalogo', () => {
     await listarProdutosCatalogo('catalogo-teste')
 
     expect(mockGet).toHaveBeenCalledWith('/api/catalogo/catalogo-teste/produtos')
+  })
+})
+
+describe('obterEmpresaCatalogo', () => {
+  beforeEach(() => mockGet.mockReset())
+
+  it('carrega nome fantasia e logo da empresa correspondente a cada slug', async () => {
+    mockGet
+      .mockResolvedValueOnce({ data: { slug: 'empresa-a', nomeFantasia: 'Vinhos A', logoUrl: 'https://cdn.example/a.png' } })
+      .mockResolvedValueOnce({ data: { slug: 'empresa-b', nomeFantasia: 'Vinhos B', logoUrl: null } })
+
+    const empresaA = await obterEmpresaCatalogo('empresa-a')
+    const empresaB = await obterEmpresaCatalogo('empresa-b')
+
+    expect(mockGet).toHaveBeenNthCalledWith(1, '/api/catalogo/empresa-a')
+    expect(mockGet).toHaveBeenNthCalledWith(2, '/api/catalogo/empresa-b')
+    expect(empresaA.nomeFantasia).toBe('Vinhos A')
+    expect(empresaA.logoUrl).toBe('https://cdn.example/a.png')
+    expect(empresaB.nomeFantasia).toBe('Vinhos B')
+    expect(empresaB.logoUrl).toBeNull()
   })
 })
 

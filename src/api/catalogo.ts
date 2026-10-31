@@ -10,8 +10,8 @@ const publicApi = axios.create({
 
 export interface EmpresaCatalogo {
   id?: string
-  nome?: string
   slug: string
+  nomeFantasia?: string | null
   logoUrl?: string | null
   descricao?: string | null
   telefone?: string | null

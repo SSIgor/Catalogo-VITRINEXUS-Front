@@ -1,11 +1,12 @@
 import type { CupomStatus } from '../../utils/cupomStatus'
+import { StatusBadge } from '../ui/StatusBadge'
 
-const badgeClassByStatus: Record<CupomStatus, string> = {
-  Ativo: 'bg-emerald-100 text-emerald-700',
-  Inativo: 'bg-ink/10 text-ink/55',
-  Expirado: 'bg-rose-100 text-rose-700',
-}
+const badgeToneByStatus = {
+  Ativo: 'success',
+  Inativo: 'neutral',
+  Expirado: 'danger',
+} as const
 
 export function CupomStatusBadge({ status }: { status: CupomStatus }) {
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClassByStatus[status]}`}>{status}</span>
+  return <StatusBadge tone={badgeToneByStatus[status]}>{status}</StatusBadge>
 }
