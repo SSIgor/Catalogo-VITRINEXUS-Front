@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { EstoqueProduto } from '../../types/estoque'
 import {
+  calcularRetiradaEstoque,
   enviarMovimentacaoValidada,
   filtrarProdutosMovimentacao,
   movimentacaoEstoqueSchema,
@@ -162,8 +163,9 @@ export function MovimentacaoModal({ produtos, selectedId, isSaving, onSubmit, on
   const product = selecionarProdutoMovimentacao(produtos, watch('produtoId'))
   const type = watch('tipo')
   const value = Number(watch('valor')) || 0
-  const difference = type === 'ajuste' ? value - (product?.estoqueAtual ?? 0) : value
-  const after = (product?.estoqueAtual ?? 0) + difference
+  const retirada = calcularRetiradaEstoque(product?.estoqueAtual ?? 0, value)
+  const difference = type === 'ajuste' ? retirada.quantidadeAjuste : value
+  const after = type === 'ajuste' ? retirada.estoqueFinal : (product?.estoqueAtual ?? 0) + value
   const input = 'mt-2 w-full rounded-xl border border-ink/15 bg-paper px-4 py-3 outline-none focus:border-teal focus:ring-4 focus:ring-teal/10'
 
   return (
@@ -184,11 +186,11 @@ export function MovimentacaoModal({ produtos, selectedId, isSaving, onSubmit, on
             {errors.produtoId && <span className="mt-1 block text-xs font-normal text-rose-600">{errors.produtoId.message}</span>}
           </div>
           <label className="block text-sm font-semibold">Tipo<select {...register('tipo')} className={input}><option value="entrada">Entrada</option><option value="ajuste">Ajuste</option></select></label>
-          <label className="block text-sm font-semibold">{type === 'entrada' ? 'Quantidade de entrada' : 'Novo estoque'}
-            <input {...register('valor')} type="number" min={type === 'entrada' ? 1 : 0} step={1} inputMode="numeric" className={input} />
-            {errors.valor && <span role="alert" className="mt-1 block text-xs font-normal text-rose-600">{errors.valor.message}</span>}
+          <label className="block text-sm font-semibold">{type === 'entrada' ? 'Quantidade de entrada' : 'Quantidade a retirar'}
+            <input {...register('valor')} type="number" min={1} max={type === 'ajuste' ? product?.estoqueAtual : undefined} step={1} className={input} />
+            {(errors.valor || (type === 'ajuste' && !retirada.valida && value > 0)) && <span role="alert" className="mt-1 block text-xs font-normal text-rose-600">{errors.valor?.message ?? 'A retirada não pode ser maior que o estoque disponível.'}</span>}
           </label>
-          {product && <div className="rounded-xl bg-mint p-4 text-sm"><p>Estoque atual: <strong>{product.estoqueAtual}</strong></p>{type === 'entrada' ? <p className="mt-1">Novo estoque: <strong>{after}</strong></p> : <p className="mt-1">Diferença: <strong className={difference < 0 ? 'text-coral' : 'text-teal'}>{difference > 0 ? '+' : ''}{difference}</strong> unidades</p>}<p className="mt-1 text-xs text-ink/50">{type === 'ajuste' ? `Ajuste de ${difference > 0 ? '+' : ''}${difference} unidades.` : `Entrada de +${value} unidades.`}</p></div>}
+          {product && <div className="rounded-xl bg-mint p-4 text-sm"><p>Estoque atual: <strong>{product.estoqueAtual}</strong></p><p className="mt-1">{type === 'ajuste' ? 'Quantidade do ajuste' : 'Quantidade de entrada'}: <strong className={difference < 0 ? 'text-coral' : 'text-teal'}>{difference > 0 ? '+' : ''}{difference}</strong> unidades</p><p className="mt-1">Estoque final previsto: <strong>{after}</strong></p></div>}
           <label className="block text-sm font-semibold">Observação<textarea {...register('observacao')} rows={3} className={input} placeholder="Ex.: Contagem física" /></label>
           <button disabled={isSaving} className="w-full rounded-xl bg-teal py-3.5 font-semibold text-white hover:bg-teal/90 disabled:cursor-wait disabled:opacity-60">{isSaving ? 'Confirmando...' : 'Confirmar movimentação'}</button>
         </form>

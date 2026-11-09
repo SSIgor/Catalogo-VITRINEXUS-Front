@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { EstoqueProduto } from '../types/estoque'
 import {
+  calcularRetiradaEstoque,
   enviarMovimentacaoValidada,
   filtrarProdutosMovimentacao,
   movimentacaoEstoqueSchema,
@@ -36,10 +37,20 @@ describe('movimentação de estoque no frontend', () => {
     expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'entrada', valor }).success).toBe(false)
   })
 
-  it('rejeita zero, negativos e decimais em ajuste, preservando saldo final zero', () => {
+  it('aceita apenas quantidades positivas e inteiras para ajuste', () => {
     expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'ajuste', valor: 1.5 }).success).toBe(false)
-    expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'ajuste', valor: -1 }).success).toBe(false)
-    expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'ajuste', valor: 0 }).success).toBe(true)
+    expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'ajuste', valor: -4 }).success).toBe(false)
+    expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'ajuste', valor: 3 }).success).toBe(true)
+    expect(movimentacaoEstoqueSchema.safeParse({ produtoId: '1', tipo: 'ajuste', valor: 0 }).success).toBe(false)
+  })
+
+  it.each([
+    [3, 3, -3, 0, true],
+    [5, 2, -2, 3, true],
+    [5, 5, -5, 0, true],
+    [5, 6, -6, -1, false],
+  ])('calcula retirada %s de estoque %s e valida limite', (estoque, retirada, quantidadeAjuste, estoqueFinal, valida) => {
+    expect(calcularRetiradaEstoque(estoque, retirada)).toEqual({ quantidadeAjuste, estoqueFinal, valida })
   })
 
   it('envia apenas os dados validados, com quantidade inteira e observação', async () => {

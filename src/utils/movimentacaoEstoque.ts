@@ -7,7 +7,7 @@ export const movimentacaoEstoqueSchema = z.object({
   valor: z.coerce
     .number({ invalid_type_error: 'Informe uma quantidade válida.' })
     .int('Informe um número inteiro, sem casas decimais.')
-    .min(0, 'O valor não pode ser negativo.'),
+    .min(1, 'Informe uma quantidade positiva.'),
   observacao: z.string().optional(),
 }).superRefine((data, context) => {
   if (data.tipo === 'entrada' && data.valor < 1) {
@@ -20,6 +20,14 @@ export const movimentacaoEstoqueSchema = z.object({
 })
 
 export type MovimentacaoEstoqueFormData = z.infer<typeof movimentacaoEstoqueSchema>
+
+export function calcularRetiradaEstoque(estoqueAtual: number, quantidadeRetirada: number) {
+  return {
+    quantidadeAjuste: -quantidadeRetirada,
+    estoqueFinal: estoqueAtual - quantidadeRetirada,
+    valida: Number.isInteger(quantidadeRetirada) && quantidadeRetirada > 0 && quantidadeRetirada <= estoqueAtual,
+  }
+}
 
 export function normalizarBuscaProduto(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').trim()

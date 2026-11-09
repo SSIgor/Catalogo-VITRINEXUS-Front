@@ -55,7 +55,7 @@ export async function registrarEntrada(data: EntradaEstoque): Promise<void> {
 }
 
 export async function registrarAjuste(data: AjusteEstoque): Promise<void> {
-  await api.post('/api/estoque/ajuste', data)
+  await api.post('/api/estoque/ajuste', { ...data, quantidade: -Math.abs(data.quantidade) })
 }
 
 export async function listarHistorico(produtoId: string): Promise<HistoricoMovimentacao[]> {
