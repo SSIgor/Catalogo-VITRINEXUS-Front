@@ -123,16 +123,18 @@ export function ProdutoDetalheCatalogo() {
 
               {/* Miniaturas */}
               {imagens.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto pb-1">
                   {imagens.map((img, idx) => (
                     <button
                       key={img.id}
+                      type="button"
                       onClick={() => setImagemSelecionada(idx)}
-                      className={`h-18 w-18 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-paper p-1 transition-colors ${
+                      aria-pressed={idx === imagemSelecionada}
+                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-paper p-1 transition-colors ${
                         idx === imagemSelecionada ? 'border-teal' : 'border-ink/15 hover:border-teal/50'
                       }`}
                     >
-                      <img src={img.url} alt={`${produto.nome} ${idx + 1}`} className="h-full w-full rounded-md object-contain" />
+                      <img src={img.url} alt={`${produto.nome} ${idx + 1}`} className="block h-full w-full rounded-md object-contain" />
                     </button>
                   ))}
                 </div>

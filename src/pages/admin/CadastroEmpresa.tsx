@@ -5,17 +5,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { criarEmpresa, type CriarEmpresaResponse } from '../../api/superAdmin'
 import { messageForApiError } from '../../utils/apiError'
+import { isValidCnpj, maskCnpj, maskPhone, onlyDigits, slugFromName } from '../../utils/empresaForm'
 
 const schema = z.object({
-  nome: z.string().trim().min(1, 'Informe o nome da empresa.'),
-  nomeFantasia: z.string(),
-  cnpj: z.string(),
+  nome: z.string().trim().min(1, 'Informe o nome da empresa.').max(150, 'Use no máximo 150 caracteres.'),
+  nomeFantasia: z.string().max(150, 'Use no máximo 150 caracteres.'),
+  cnpj: z.string().refine((value) => !value || isValidCnpj(value), 'Informe um CNPJ válido.'),
   email: z.string().trim().email('Informe um e-mail válido.'),
-  telefone: z.string(),
-  whatsApp: z.string(),
+  telefone: z.string().max(15, 'Telefone inválido.'),
+  whatsApp: z.string().max(15, 'WhatsApp inválido.'),
   logoUrl: z.string(),
   descricao: z.string(),
-  slug: z.string().trim().min(1, 'Informe o slug.').regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use letras minúsculas, números e hífens.'),
+  slug: z.string().trim().min(1, 'Informe o slug.').max(100, 'Use no máximo 100 caracteres.').regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use letras minúsculas, números e hífens.'),
   administradorNome: z.string().trim().min(1, 'Informe o nome do administrador.'),
   administradorEmail: z.string().trim().email('Informe um e-mail válido para o administrador.'),
 })
@@ -39,7 +40,9 @@ export function CadastroEmpresa() {
   const [apiError, setApiError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const [copiedAccess, setCopiedAccess] = useState(false)
+  const [slugEdited, setSlugEdited] = useState(false)
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       nome: '', nomeFantasia: '', cnpj: '', email: '', telefone: '', whatsApp: '', logoUrl: '', descricao: '', slug: '',
@@ -57,7 +60,7 @@ export function CadastroEmpresa() {
         empresa: {
           nome: form.nome,
           nomeFantasia: form.nomeFantasia.trim() || null,
-          cnpj: form.cnpj.trim() || null,
+          cnpj: onlyDigits(form.cnpj, 14) || null,
           email: form.email,
           telefone: form.telefone.trim() || null,
           whatsApp: form.whatsApp.trim() || null,
@@ -68,7 +71,6 @@ export function CadastroEmpresa() {
         administrador: { nome: form.administradorNome, email: form.administradorEmail },
       })
       setCreated(result)
-      reset()
     } catch (error) {
       setApiError(messageForApiError(error, 'Não foi possível cadastrar a empresa. Revise os dados e tente novamente.'))
       setFieldErrors(backendValidationMessages(error))
@@ -85,9 +87,17 @@ export function CadastroEmpresa() {
     }
   }
 
+  async function copyAccessDetails() {
+    if (!created) return
+    try {
+      await navigator.clipboard.writeText(`Empresa: ${created.empresa.nome}\nAdministrador: ${created.administrador.nome}\nE-mail: ${created.administrador.email}\nSenha temporária: ${created.senhaTemporaria}`)
+      setCopiedAccess(true)
+    } catch { setCopiedAccess(false) }
+  }
+
   const field = (name: keyof FormData, label: string, type = 'text', required = false) => (
     <label className="block text-sm font-semibold">{label}{required && <span className="text-coral"> *</span>}
-      <input {...register(name)} type={type} className={inputClass} />
+      <input {...register(name, name === 'cnpj' ? { onChange: (event) => setValue(name, maskCnpj(event.target.value), { shouldValidate: true }) } : name === 'telefone' || name === 'whatsApp' ? { onChange: (event) => setValue(name, maskPhone(event.target.value), { shouldValidate: true }) } : {})} type={type} maxLength={name === 'cnpj' ? 18 : name === 'telefone' || name === 'whatsApp' ? 15 : name === 'nome' || name === 'nomeFantasia' ? 150 : undefined} inputMode={name === 'cnpj' || name === 'telefone' || name === 'whatsApp' ? 'numeric' : undefined} className={inputClass} />
       {errors[name]?.message && <span className="mt-1 block text-xs font-normal text-rose-600">{errors[name]?.message}</span>}
     </label>
   )
@@ -114,7 +124,7 @@ export function CadastroEmpresa() {
           </div>
           <p className="mt-3 text-xs leading-relaxed text-amber-900">Entregue a senha ao administrador por um canal seguro. No primeiro acesso, ele deverá criar uma nova senha.</p>
         </div>
-        <button type="button" onClick={() => setCreated(null)} className="mt-5 text-sm font-semibold text-ink/60 underline underline-offset-4 hover:text-ink">Descartar esta confirmação e ocultar a senha</button>
+        <button type="button" onClick={copyAccessDetails} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2 text-sm font-semibold text-amber-900"><Clipboard size={16} />{copiedAccess ? 'Dados copiados' : 'Copiar dados de acesso'}</button>
       </section>
     ) : (
       <form onSubmit={handleSubmit(submit)} className="mt-8 space-y-6">

@@ -11,13 +11,14 @@ import { CatalogoGrid } from '../../components/catalogo/CatalogoGrid'
 import { FiltroCompacto } from '../../components/catalogo/FiltroCompacto'
 import { PublicLayout } from '../../components/layout/PublicLayout'
 import { messageForApiError } from '../../utils/apiError'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { PaginacaoCatalogo } from '../../components/catalogo/PaginacaoCatalogo'
 import { atualizarFiltrosCatalogo, atualizarPaginaCatalogo, filtrarProdutosCatalogo, paginarCatalogo } from '../../utils/catalogoPaginacao'
 
 export function Catalogo() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
+  const listaProdutosRef = useRef<HTMLDivElement>(null)
 
   const busca = searchParams.get('busca') ?? ''
   const categoriaFiltro = searchParams.get('categoria') ?? ''
@@ -66,6 +67,13 @@ export function Catalogo() {
   }
 
   const paginacao = paginarCatalogo(produtosFiltrados, paginaSolicitada)
+
+  const handleMudarPagina = (pagina: number) => {
+    if (pagina === paginacao.pagina) return
+
+    setSearchParams(atualizarPaginaCatalogo(searchParams, pagina))
+    listaProdutosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   if (!slug) {
     return (
@@ -154,10 +162,12 @@ export function Catalogo() {
           </div>
         ) : (
           <>
-            <CatalogoGrid produtos={paginacao.itens} />
+            <div ref={listaProdutosRef}>
+              <CatalogoGrid produtos={paginacao.itens} />
+            </div>
             <PaginacaoCatalogo
               paginacao={paginacao}
-              aoMudarPagina={(pagina) => setSearchParams(atualizarPaginaCatalogo(searchParams, pagina))}
+              aoMudarPagina={handleMudarPagina}
             />
           </>
         )}

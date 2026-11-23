@@ -1,5 +1,6 @@
 import api from './api'
 
+
 export interface EmpresaCadastro {
   nome: string
   nomeFantasia: string | null
